@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>My CVE Tool</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      h1, h2 {
+        margin-bottom: 10px;
+      }
+      form {
+        margin-bottom: 20px;
+      }
+      select, input, button {
+        margin: 5px 0;
+        padding: 5px;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 10px;
+        border-radius: 5px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CVE Report Viewer</h1>
+
+    <!-- Dropdown for existing reports -->
+    <h2>Open Existing Report</h2>
+    <form>
+      <select id="reportDropdown" onchange="window.open('/report/' + this.value, '_blank')">
+        <option disabled selected>Select a file</option>
+        {% for file in files %}
+          <option value="{{ file }}">{{ file }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <!-- Form for running cve_report.py -->
+    <h2>Generate New Report</h2>
+    <form id="runForm" method="POST" action="/run">
+      <label>Input File:</label><br>
+      <input type="text" name="ifile" placeholder="in.json"><br>
+
+      <label>Output File:</label><br>
+      <input type="text" name="ofile" placeholder="out.csv"><br>
+
+      <label>Date:</label><br>
+      <input type="text" name="date" placeholder="YYYYMMDD"><br>
+
+      <label><input type="checkbox" name="summary"> Summary (-s)</label><br>
+      <label><input type="checkbox" name="to_csv"> Create Unpatched Report (-c)</label><br>
+      <label><input type="checkbox" name="all"> List All Issues (-a)</label><br>
+      <label><input type="checkbox" name="unknown"> List Unknown Issues (-u)</label><br>
+      <label><input type="checkbox" name="x"> Report All Files (-x)</label><br>
+      
+      <p>Compare report with
+        <select id="compareDropdown" name="compared_report">
+          <option selected>None</option>
+          {% for file in files %}
+            <option value="{{ file }}">{{ file }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <button type="submit">Run</button>
+    </form>
+
+    <!-- Where results from /run will appear -->
+    <h2>Output</h2>
+    <pre id="output"></pre>
+
+    <script>
+      // Run script without page reload
+      document.getElementById("runForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const response = await fetch("/run", {
+          method: "POST",
+          body: formData
+        });
+        const text = await response.text();
+        document.getElementById("output").textContent = text;
+
+        // Refresh dropdown in case a new report was generated
+        try {
+          const dropdown = document.getElementById("reportDropdown");
+          const fileResponse = await fetch("/files");
+          const files = await fileResponse.json();
+
+          dropdown.innerHTML = '<option disabled selected>Select a file</option>';
+          files.forEach(f => {
+            const opt = document.createElement("option");
+            opt.value = f;
+            opt.textContent = f;
+            dropdown.appendChild(opt);
+          });
+        } catch (e) {
+          console.error("Failed to refresh report list:", e);
+        }
+      });
+    </script>
+  </body>
+</html>
