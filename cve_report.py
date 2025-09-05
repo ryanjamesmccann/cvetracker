@@ -13,9 +13,12 @@ compared_report = ""
 to_csv = False
 date = ""
 all = False
-file_directory = f"/Users/ryanmccann/code/Dad_CVE_Project/cve_test/"
-report_folder = f"/Users/ryanmccann/code/Dad_CVE_Project/unpatched_cve_report/reports"
+file_directory = f"/Users/ryanmccann/code/Dad_CVE_Project/tree/cve_data/"
+report_folder = f"/Users/ryanmccann/code/Dad_CVE_Project/tree/reports"
 important_data = {}
+data2 = {"issues": []}
+read_data = []
+txt_data2 = []
 
 
 def show_syntax_and_exit(code):
@@ -26,9 +29,7 @@ def show_syntax_and_exit(code):
     """
     print("Syntax: %s [-h] [-a] [-s] [-c] [-u] [-i inputfile][-o outputfile]" % sys.argv[0])
     print("Default files: in.json and out.csv")
-    print(
-        "Use -c or --to-csv to generate a CSV report, output file is then needed, out.csv by default"
-    )
+    print("Use -c or --to-csv to generate a CSV report, output file is then needed, out.csv by default")
     print("Use -a or --all to list all issues, otherwise we filter only unpatched ones")
     print("Use -s or --summary to show a summary of the issues")
     print("Use -u or --unknown to list unknown issues")
@@ -224,7 +225,7 @@ def process_data(filename, infile, data, unpatched_only, do_summary, do_csv, dat
 
                 if do_csv:
 
-                    folder_path = (f"/Users/ryanmccann/code/Dad_CVE_Project/unpatched_cve_report/{date}")
+                    folder_path = (f"/Users/ryanmccann/code/Dad_CVE_Project/tree/reports/{date}")
                     os.makedirs(folder_path, exist_ok=True)
                     
                     make_unpatched_txt(filename, folder_path, cve_id, package_name, status, scorev3, summary, remediation)
@@ -295,6 +296,11 @@ def make_unpatched_json(filename, folder_path, cve_id, package_name, status, sco
 
     with open(filename_json, "w") as outjson:
         json.dump(existing, outjson, indent=4)
+        
+    print("^^ MAKE_UNPATCHED_JSON ^^")
+
+    delete_duplicates(filename_json, True)
+    return existing
 
 def make_json(filename, folder_path, data):
     """
@@ -304,6 +310,8 @@ def make_json(filename, folder_path, data):
     with open(filename_json, "w") as outjson:
         print(f"Printing {filename}")
         json.dump(data, outjson, indent = 4)
+    
+    delete_duplicates(filename_json)
     
 
 def make_unpatched_txt(filename, folder_path, cve_id, package_name, status, scorev3, summary, remediation):
@@ -316,14 +324,23 @@ def make_unpatched_txt(filename, folder_path, cve_id, package_name, status, scor
         print(f"Printing {filename_txt}")
         outtxt.write(str(csv_info_txt))
 
+    print("^^ MAKE_UNPATCHED_TXT ^^")
+    delete_duplicates(filename_txt)
+
 def make_txt(filename, folder_path, data):
     """
     Makes txt file
     """
+    print()
+    print("IN MAKE_TXT")
+    print()
     filename_txt = os.path.join(folder_path, f"{filename}.txt")           
     with open(filename_txt, "w") as outtxt:
         print(f"Printing {filename_txt}")
         outtxt.write(str(data))
+
+    print("MAKE_TXT")
+    delete_duplicates(filename_txt)
 
 def update_base_database(filename, infile, data):
     """
@@ -341,11 +358,8 @@ def update_base_database(filename, infile, data):
     print("IN UPDATE-BASE-DATABASE FUNCTION")
     print()
 
-    base_directory = "/Users/ryanmccann/code/Dad_CVE_Project/cve_base_database/"
+    base_directory = "/Users/ryanmccann/code/Dad_CVE_Project/tree/base_database/"
     os.makedirs(base_directory, exist_ok = True)
-    database_list = os.listdir(base_directory)
-    
-    
     
     if not os.path.isfile(f"{base_directory}{filename}"):
         make_json(filename, base_directory, data)
@@ -360,12 +374,12 @@ def load_report(date):
     Returns the report path and the folder path.
     """
 
-    this_folder = (f"/Users/ryanmccann/code/Dad_CVE_Project/unpatched_cve_report/{date}")
+    this_folder = (f"/Users/ryanmccann/code/Dad_CVE_Project/tree/reports/{date}")
 
     print(f"Loading Report for {date}")
 
     todays_unpatched_cve_report = f"unpatched_report_{date}.txt"
-    report_path = os.path.join(report_folder, todays_unpatched_cve_report)
+    report_path = os.path.join(this_folder, todays_unpatched_cve_report)
 
     os.makedirs(this_folder, exist_ok=True)
 
@@ -397,7 +411,7 @@ def compare_reports(date, current_report_path, date_to_compare):
     """Compares new report with a previous report that you input. 
         Returns current_report"""
     print(current_report_path)
-    date_to_compare_path = (f"/Users/ryanmccann/code/Dad_CVE_Project/unpatched_cve_report/reports/unpatched_report_{date_to_compare}.txt")
+    date_to_compare_path = (f"/Users/ryanmccann/code/Dad_CVE_Project/tree/reports/{date_to_compare}/unpatched_report_{date_to_compare}.txt")
 
     current_report = []
     latter_report = []
@@ -450,12 +464,13 @@ def compare_reports(date, current_report_path, date_to_compare):
     
     return current_report
 
-def create_html(report_folder, date, current_report):
+def create_html(report_folder, date, current_report, outfile):
     """Write html file of the report."""
     cve = {}
     print(current_report)
-    os.makedirs(report_folder, exist_ok=True)
-    html = os.path.join(report_folder, f"{date}.html")
+    report_date_folder = os.path.join(report_folder, date)
+    os.makedirs(report_date_folder, exist_ok=True)
+    html = os.path.join(report_date_folder, f"{outfile}.html")
     i = 0
     x = 0
     fields = []
@@ -463,8 +478,8 @@ def create_html(report_folder, date, current_report):
     with open(html, "w") as write:
         print()
         print("Writing html...")
-        print(f"Writing html at {report_folder}")
-        write.write("<!DOCTYPE html>\n<html>\n<head>\n<title>CVE Reports</title>\n<style> ... </style>\n</head>\n<body><table>\n<tr>\n<th>ID</th>\n<th>Title</th>\n<th>Status</th>\n<th>Severity</th>\n<th>Explanation</th>\n<th>Remediation</th>")
+        print(f"Writing html at {report_date_folder}")
+        write.write("<!DOCTYPE html>\n<html>\n<head>\n<title>CVE Reports</title>\n<style></style>\n</head>\n<body><table>\n<tr>\n<th>ID</th>\n<th>Title</th>\n<th>Status</th>\n<th>Severity</th>\n<th>Explanation</th>\n<th>Remediation</th>")
 
         for line in current_report:
             print(line)
@@ -474,10 +489,9 @@ def create_html(report_folder, date, current_report):
                 continue  # Skip malformed lines
             write.write("  <tr>\n")
             for field in fields:
-                i +=1 
                 if x > 0:
                     fields.insert(0, double_field[1])
-                    print(f"adding{double_field[1]} to html. i = {i}")
+                    print(f"adding{double_field[1]} to html.")
                     write.write(f"    <td>{double_field[1].strip()}</td>\n")
                     x = 0
                     continue
@@ -488,13 +502,13 @@ def create_html(report_folder, date, current_report):
                     print(f"double_field[1] = {double_field[1]}")
                     print("----------------------------------")
                     
-                    print(f"adding REMEDIATION({double_field[0]}) to html. i = {i}")
+                    print(f"adding REMEDIATION({double_field[0]}) to html.")
                     write.write(f"    <td>{double_field[0].strip()}</td>\n")
                     write.write(" </tr> <tr>")
                     print(f"The next field to be added is: {double_field[1]}")   
                     x += 1
                 else:
-                    print(f"adding{field} to html. i = {i}")
+                    print(f"adding{field} to html.")
                     write.write(f"    <td>{field.strip()}</td>\n")
                     x = 0
                 
@@ -504,6 +518,68 @@ def create_html(report_folder, date, current_report):
 
         write.write("</table></body></html>")
 
+def delete_duplicates(path, unpatched = False, data = {}):
+    global data2, txt_data2
+    """
+    go into folder you are working in
+    for file in folder:
+        if file ends with .txt:
+            for line in file:
+                files.append[line]
+                
+        if file ends with .json:
+            for line in file:
+                files.append[line]
+
+        if two lines are the same: delete the second one
+        remove copy from file       
+
+    SHOULD GO INTO FILE AND DELETE      
+    """
+    print()
+    print("IN DELETE_DUPLICATES")
+    print()
+    ##if os.path.isdir(path):  
+    if str(path).endswith(".json"):
+        if unpatched == True:
+            with open(path, "r") as read:
+                data = json.load(read)
+
+                for value in data["issues"]:
+                    print(f"VALUE = {value}")
+                    print(type(data))
+                    print(type(data["issues"]))
+                    value = dict(value)
+                    print(type(value))
+                    print(value["id"])
+                    if str(value["id"]) in str(data2["issues"]): 
+                        continue
+                    else:
+                        data2["issues"].append(value)
+
+            print(f"NEW_DATA = {data2}")
+
+            if len(data2["issues"]) != 0:
+                with open(path, "w") as write:
+                    json.dump(data2, write, indent=4)
+        else:
+            with open(path, "w") as write:
+                json.dump(data, write, indent=4)
+
+    elif str(path).endswith(".txt"):
+        with open(path, "r") as read:
+            for line in read:
+                print(f"LINE = {line}")
+                read_data.append(line)
+
+                if line in txt_data2:
+                    continue
+                else:
+                    txt_data2.append(line)
+
+        print(f"DATA = {txt_data2}")
+        with open(path, "w") as write:
+            write.writelines(line for line in txt_data2)
 
 def main(argv):
     global infile, outfile, all, to_csv, compare_reports_bool, compared_report, report_folder, date
@@ -533,11 +609,14 @@ def main(argv):
         print("Not working right.")
 
     
-    date_folder = (f"/Users/ryanmccann/code/Dad_CVE_Project/unpatched_cve_report/{date}")
+    date_folder = (f"/Users/ryanmccann/code/Dad_CVE_Project/tree/reports/{date}")
+    os.makedirs(date_folder, exist_ok=True)
     if os.path.isdir(date_folder):
         print(f"{os.path.isdir(date_folder)}")
         print(date_folder)
         current_report_path, all_lines = load_report(date)
+    else:
+        print (f"Folder: {date} not found")
     
     if compare_reports_bool == True:
         current_report_path, all_lines = load_report(date)
@@ -545,7 +624,10 @@ def main(argv):
         current_report = compare_reports(date, current_report_path, compared_report)
         print("Reports were compared.")
     
-    create_html(report_folder, date, all_lines)   
+    if all_lines != []:
+        create_html(report_folder, date, all_lines, outfile)   
+    else:
+        print("There is no data to write an html.")
 
     
     
